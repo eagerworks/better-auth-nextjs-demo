@@ -71,3 +71,36 @@ model Verification {
 
   @@map("verification")
 }
+
+model Brand {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  models Model[]
+
+  @@map("brand")
+}
+
+model Model {
+  id      String @id @default(cuid())
+  name    String
+  brandId String
+  brand   Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  cars    Car[]
+
+  @@unique([brandId, name])
+  @@map("model")
+}
+
+model Car {
+  id        String   @id @default(cuid())
+  year      Int
+  price     Decimal  @db.Decimal(10, 2)
+  color     String
+  mileage   Int      @default(0)
+  modelId   String
+  model     Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("car")
+}
