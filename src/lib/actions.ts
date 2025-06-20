@@ -9,6 +9,13 @@ import {
   addBrandSchema,
   addModelSchema,
   editCarSchema,
+  setPasswordSchema,
+  enable2FASchema,
+  verify2FASchema,
+  disable2FASchema,
+  createOrganizationSchema,
+  inviteMemberSchema,
+  assignBrandSchema,
 } from "@/lib/validations";
 import {
   createCar,
@@ -17,8 +24,10 @@ import {
   getModelsByBrand,
   updateCar,
   deleteCar,
+  assignBrandToOrganization,
 } from "@/lib/data";
 import type { Session } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 
 // Helper function to validate session
 async function validateSession() {
@@ -395,5 +404,440 @@ export async function getModelsAction(brandId: string) {
   } catch (error) {
     console.error("Error fetching models:", error);
     return [];
+  }
+}
+
+// Add this new action for OAuth users to set their initial password
+export async function setPasswordAction(prevState: any, formData: FormData) {
+  try {
+    // Validate form data using Zod
+    const validatedFields = setPasswordSchema.safeParse({
+      password: formData.get("password"),
+      confirmPassword: formData.get("confirmPassword"),
+    });
+
+    if (!validatedFields.success) {
+      return {
+        success: false,
+        error: "Invalid form data",
+        fieldErrors: validatedFields.error.flatten().fieldErrors,
+      };
+    }
+
+    const { password } = validatedFields.data;
+
+    const result = await auth.api.setPassword({
+      body: { newPassword: password },
+      headers: await headers(),
+    });
+
+    if (!result.status) {
+      return {
+        success: false,
+        error: "Failed to set password",
+        fieldErrors: {},
+      };
+    }
+
+    revalidatePath("/dashboard");
+    return {
+      success: true,
+      message: "Password set successfully!",
+      fieldErrors: {},
+    };
+  } catch (error: any) {
+    console.error("Set password error:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to set password",
+      fieldErrors: {},
+    };
+  }
+}
+
+// Add 2FA Actions
+export async function enable2FAAction(prevState: any, formData: FormData) {
+  try {
+    // Validate form data using Zod
+    const validatedFields = enable2FASchema.safeParse({
+      password: formData.get("password"),
+    });
+
+    if (!validatedFields.success) {
+      return {
+        success: false,
+        error: "Invalid form data",
+        fieldErrors: validatedFields.error.flatten().fieldErrors,
+      };
+    }
+
+    const { password } = validatedFields.data;
+
+    const response = await fetch(
+      `${
+        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      }/api/auth/two-factor/enable`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await headers()),
+        },
+        body: JSON.stringify({ password }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: result.message || "Failed to enable 2FA",
+        fieldErrors: {},
+      };
+    }
+
+    return {
+      success: true,
+      data: result,
+      fieldErrors: {},
+    };
+  } catch (error: any) {
+    console.error("Enable 2FA error:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to enable 2FA",
+      fieldErrors: {},
+    };
+  }
+}
+
+export async function verify2FAAction(prevState: any, formData: FormData) {
+  try {
+    // Validate form data using Zod
+    const validatedFields = verify2FASchema.safeParse({
+      code: formData.get("code"),
+    });
+
+    if (!validatedFields.success) {
+      return {
+        success: false,
+        error: "Invalid form data",
+        fieldErrors: validatedFields.error.flatten().fieldErrors,
+      };
+    }
+
+    const { code } = validatedFields.data;
+
+    const response = await fetch(
+      `${
+        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      }/api/auth/two-factor/verify-totp`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await headers()),
+        },
+        body: JSON.stringify({ code }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: result.message || "Invalid verification code",
+        fieldErrors: {},
+      };
+    }
+
+    revalidatePath("/dashboard");
+    return {
+      success: true,
+      fieldErrors: {},
+    };
+  } catch (error: any) {
+    console.error("Verify 2FA error:", error);
+    return {
+      success: false,
+      error: error.message || "Invalid verification code",
+      fieldErrors: {},
+    };
+  }
+}
+
+export async function disable2FAAction(prevState: any, formData: FormData) {
+  try {
+    // Validate form data using Zod
+    const validatedFields = disable2FASchema.safeParse({
+      password: formData.get("password"),
+    });
+
+    if (!validatedFields.success) {
+      return {
+        success: false,
+        error: "Invalid form data",
+        fieldErrors: validatedFields.error.flatten().fieldErrors,
+      };
+    }
+
+    const { password } = validatedFields.data;
+
+    const response = await fetch(
+      `${
+        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      }/api/auth/two-factor/disable`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(await headers()),
+        },
+        body: JSON.stringify({ password }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: result.message || "Failed to disable 2FA",
+        fieldErrors: {},
+      };
+    }
+
+    revalidatePath("/dashboard");
+    return {
+      success: true,
+      fieldErrors: {},
+    };
+  } catch (error: any) {
+    console.error("Disable 2FA error:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to disable 2FA",
+      fieldErrors: {},
+    };
+  }
+}
+
+// Organization Actions
+export async function createOrganizationAction(
+  prevState: any,
+  formData: FormData
+) {
+  try {
+    // Validate form data using Zod
+    const validatedFields = createOrganizationSchema.safeParse({
+      name: formData.get("name"),
+      slug:
+        formData.get("slug") ||
+        (formData.get("name") as string)
+          ?.trim()
+          .toLowerCase()
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9-]/g, ""),
+    });
+
+    if (!validatedFields.success) {
+      return {
+        success: false,
+        error: "Invalid form data",
+        fieldErrors: validatedFields.error.flatten().fieldErrors,
+      };
+    }
+
+    const { name, slug } = validatedFields.data;
+
+    const result = await auth.api.createOrganization({
+      body: { name, slug },
+      headers: await headers(),
+    });
+
+    if (!result) {
+      return {
+        success: false,
+        error: "Failed to create organization",
+        fieldErrors: {},
+      };
+    }
+
+    revalidatePath("/dashboard");
+    return {
+      success: true,
+      fieldErrors: {},
+    };
+  } catch (error: any) {
+    console.error("Create Organization error:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to create organization",
+      fieldErrors: {},
+    };
+  }
+}
+
+export async function inviteMemberAction(prevState: any, formData: FormData) {
+  try {
+    // Validate form data using Zod
+    const validatedFields = inviteMemberSchema.safeParse({
+      organizationId: formData.get("organizationId"),
+      email: formData.get("email"),
+      role: formData.get("role") || "member",
+    });
+
+    if (!validatedFields.success) {
+      return {
+        success: false,
+        error: "Invalid form data",
+        fieldErrors: validatedFields.error.flatten().fieldErrors,
+      };
+    }
+
+    const { organizationId, email, role } = validatedFields.data;
+
+    const result = await auth.api.createInvitation({
+      body: { organizationId, email, role },
+      headers: await headers(),
+    });
+
+    if (!result) {
+      return {
+        success: false,
+        error: "Failed to send invitation",
+        fieldErrors: {},
+      };
+    }
+
+    revalidatePath("/dashboard");
+    return {
+      success: true,
+      fieldErrors: {},
+    };
+  } catch (error: any) {
+    console.error("Invite Member error:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to send invitation",
+      fieldErrors: {},
+    };
+  }
+}
+
+export async function switchOrganizationAction(
+  prevState: any,
+  formData: FormData
+) {
+  try {
+    const organizationId = formData.get("organizationId") as string;
+
+    if (!organizationId) {
+      return {
+        success: false,
+        error: "Organization ID is required",
+        fieldErrors: {},
+      };
+    }
+
+    const result = await auth.api.setActiveOrganization({
+      body: { organizationId },
+      headers: await headers(),
+    });
+
+    if (!result) {
+      return {
+        success: false,
+        error: "Failed to switch organization",
+        fieldErrors: {},
+      };
+    }
+
+    revalidatePath("/dashboard");
+    return {
+      success: true,
+      fieldErrors: {},
+    };
+  } catch (error: any) {
+    console.error("Switch Organization error:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to switch organization",
+      fieldErrors: {},
+    };
+  }
+}
+
+// Assign existing brand to current organization
+export async function assignBrandAction(
+  prevState: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  try {
+    // Validate session
+    const session = await validateSession();
+
+    // Get active organization
+    const activeOrganizationId = session.session.activeOrganizationId;
+    if (!activeOrganizationId) {
+      return {
+        success: false,
+        error: "No active organization selected",
+        fieldErrors: {},
+      };
+    }
+
+    // Parse form data
+    const brandId = formData.get("brandId");
+    if (!brandId) {
+      return {
+        success: false,
+        error: "Brand ID is required",
+        fieldErrors: { brandId: "Please select a brand" },
+      };
+    }
+
+    const rawData = { brandId: brandId.toString() };
+
+    // Validate with Zod
+    const validationResult = assignBrandSchema.safeParse(rawData);
+
+    if (!validationResult.success) {
+      const fieldErrors: Record<string, string> = {};
+      validationResult.error.errors.forEach((error) => {
+        if (error.path[0]) {
+          fieldErrors[error.path[0] as string] = error.message;
+        }
+      });
+
+      return {
+        success: false,
+        error: "Validation failed",
+        fieldErrors,
+      };
+    }
+
+    // Assign the brand to the organization
+    const brand = await assignBrandToOrganization(
+      validationResult.data.brandId,
+      activeOrganizationId
+    );
+
+    // Revalidate relevant paths
+    revalidatePath("/dashboard");
+
+    return {
+      success: true,
+      data: brand,
+    };
+  } catch (error) {
+    console.error("Error assigning brand:", error);
+
+    return {
+      success: false,
+      error: "Failed to assign brand. Please try again.",
+    };
   }
 }

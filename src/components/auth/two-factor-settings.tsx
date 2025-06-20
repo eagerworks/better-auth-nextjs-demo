@@ -8,6 +8,7 @@ import {
   disable2FAAction,
 } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
+import { FORM_INITIAL_STATE } from "@/lib/constants";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,12 +18,6 @@ interface TwoFactorSettingsProps {
     twoFactorEnabled?: boolean | null;
   };
 }
-
-const initialState = {
-  success: false,
-  error: undefined,
-  fieldErrors: {},
-};
 
 export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
   // Form states
@@ -34,15 +29,15 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
   // Action states
   const [enableState, enableAction, isEnabling] = useActionState(
     enable2FAAction,
-    initialState
+    FORM_INITIAL_STATE
   );
   const [verifyState, verifyAction, isVerifying] = useActionState(
     verify2FAAction,
-    initialState
+    FORM_INITIAL_STATE
   );
   const [disableState, disableAction, isDisabling] = useActionState(
     disable2FAAction,
-    initialState
+    FORM_INITIAL_STATE
   );
 
   // Handle enable 2FA success

@@ -9,14 +9,18 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 // Car data access functions
-export async function getCars() {
+export async function getCars(organizationId?: string | null) {
   return await prisma.car.findMany({
+    where: {
+      organizationId: organizationId || null,
+    },
     include: {
       model: {
         include: {
           brand: true,
         },
       },
+      organization: true,
     },
     orderBy: [
       { model: { brand: { name: "asc" } } },
@@ -42,8 +46,11 @@ export async function getBrands() {
 }
 
 // Get brands for form dropdowns (simplified)
-export async function getBrandsForForm() {
+export async function getBrandsForForm(organizationId?: string | null) {
   return await prisma.brand.findMany({
+    where: {
+      organizationId: organizationId || null,
+    },
     select: {
       id: true,
       name: true,
@@ -152,5 +159,135 @@ export async function createModel(data: { name: string; brandId: string }) {
     include: {
       brand: true,
     },
+  });
+}
+
+// Organization data access functions
+export async function getUserOrganizations(userId: string) {
+  return await prisma.organization.findMany({
+    where: {
+      members: {
+        some: {
+          userId: userId,
+        },
+      },
+    },
+    include: {
+      members: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          members: true,
+          invitations: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+}
+
+// Get user's active organization from session
+export async function getUserActiveOrganization(sessionToken: string) {
+  const session = await prisma.session.findUnique({
+    where: { token: sessionToken },
+    select: { activeOrganizationId: true },
+  });
+
+  if (!session?.activeOrganizationId) {
+    return null;
+  }
+
+  return await prisma.organization.findUnique({
+    where: { id: session.activeOrganizationId },
+  });
+}
+
+// Get organization-scoped cars and brands for dashboard
+export async function getDashboardData(
+  userId: string,
+  activeOrganizationId?: string | null
+) {
+  const organizationId = activeOrganizationId || null;
+
+  const [cars, brands, organizations, unassignedBrands] = await Promise.all([
+    // Get cars for current organization context
+    prisma.car.findMany({
+      where: {
+        organizationId: organizationId,
+      },
+      include: {
+        model: {
+          include: {
+            brand: true,
+          },
+        },
+        organization: true,
+      },
+      orderBy: [
+        { model: { brand: { name: "asc" } } },
+        { model: { name: "asc" } },
+        { year: "desc" },
+      ],
+    }),
+    // Get brands for current organization context
+    prisma.brand.findMany({
+      where: {
+        organizationId: organizationId,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: { name: "asc" },
+    }),
+    // Get user's organizations
+    getUserOrganizations(userId),
+    // Get unassigned brands (only if user has an active organization)
+    activeOrganizationId ? getUnassignedBrands() : Promise.resolve([]),
+  ]);
+
+  return { cars, brands, organizations, unassignedBrands };
+}
+
+// Get active organization by ID
+export async function getActiveOrganization(organizationId: string) {
+  return await prisma.organization.findUnique({
+    where: { id: organizationId },
+  });
+}
+
+// Get brands not assigned to any organization (available for assignment)
+export async function getUnassignedBrands() {
+  return await prisma.brand.findMany({
+    where: {
+      organizationId: null,
+    },
+    select: {
+      id: true,
+      name: true,
+    },
+    orderBy: { name: "asc" },
+  });
+}
+
+// Assign a brand to an organization
+export async function assignBrandToOrganization(
+  brandId: string,
+  organizationId: string
+) {
+  return await prisma.brand.update({
+    where: { id: brandId },
+    data: { organizationId: organizationId },
   });
 }

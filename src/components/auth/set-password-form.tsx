@@ -3,21 +3,16 @@
 import { useEffect, useActionState } from "react";
 import { toast } from "sonner";
 import { setPasswordAction } from "@/lib/actions";
+import { FORM_INITIAL_STATE } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const initialState = {
-  success: false,
-  error: undefined,
-  fieldErrors: {},
-};
-
 export function SetPasswordForm() {
   const [state, formAction, isPending] = useActionState(
     setPasswordAction,
-    initialState
+    FORM_INITIAL_STATE
   );
 
   // Handle success/error states
