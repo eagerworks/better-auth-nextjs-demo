@@ -8,22 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { addCarAction, getModelsAction } from "@/lib/actions";
 import type { BrandForForm, ModelForForm } from "@/lib/types";
+import { FORM_INITIAL_STATE } from "@/lib/constants";
 
 interface AddCarFormProps {
   brands: BrandForForm[];
   onSuccess?: () => void;
 }
 
-const initialState = {
-  success: false,
-  error: undefined,
-  fieldErrors: {},
-};
-
 export function AddCarForm({ brands, onSuccess }: AddCarFormProps) {
   const [state, formAction, isPending] = useActionState(
     addCarAction,
-    initialState
+    FORM_INITIAL_STATE
   );
 
   const [selectedBrandId, setSelectedBrandId] = useState("");

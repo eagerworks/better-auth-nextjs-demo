@@ -17,22 +17,17 @@ import {
 import { editCarAction } from "@/lib/actions";
 import { Edit2 } from "lucide-react";
 import type { Car } from "@/lib/types";
+import { FORM_INITIAL_STATE } from "@/lib/constants";
 
 interface EditCarDialogProps {
   car: Car;
   onSuccess?: () => void;
 }
 
-const initialState = {
-  success: false,
-  error: undefined,
-  fieldErrors: {},
-};
-
 export function EditCarDialog({ car, onSuccess }: EditCarDialogProps) {
   const [state, formAction, isPending] = useActionState(
     editCarAction,
-    initialState
+    FORM_INITIAL_STATE
   );
 
   // Handle success/error states

@@ -15,23 +15,18 @@ import {
 import { deleteCarAction } from "@/lib/actions";
 import { Trash2 } from "lucide-react";
 import type { Car } from "@/lib/types";
+import { FORM_INITIAL_STATE } from "@/lib/constants";
 
 interface DeleteCarDialogProps {
   car: Car;
   onSuccess?: () => void;
 }
 
-const initialState = {
-  success: false,
-  error: undefined,
-  fieldErrors: {},
-};
-
 export function DeleteCarDialog({ car, onSuccess }: DeleteCarDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [state, formAction, isPending] = useActionState(
     deleteCarAction,
-    initialState
+    FORM_INITIAL_STATE
   );
 
   // Handle success/error states
