@@ -1,17 +1,13 @@
 "use client";
 
-import { useState, useEffect, useActionState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import {
-  enable2FAAction,
-  verify2FAAction,
-  disable2FAAction,
-} from "@/lib/actions";
+import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
-import { FORM_INITIAL_STATE } from "@/lib/constants";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useRouter } from "next/navigation";
 
 interface TwoFactorSettingsProps {
   user: {
@@ -24,66 +20,88 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
   const [showQRCode, setShowQRCode] = useState(false);
   const [qrCodeUri, setQrCodeUri] = useState<string>("");
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
-  const [enableState, enableAction, isEnabling] = useActionState(
-    enable2FAAction,
-    FORM_INITIAL_STATE
-  );
-  const [verifyState, verifyAction, isVerifying] = useActionState(
-    verify2FAAction,
-    FORM_INITIAL_STATE
-  );
-  const [disableState, disableAction, isDisabling] = useActionState(
-    disable2FAAction,
-    FORM_INITIAL_STATE
-  );
+  // Enable 2FA using Better Auth client method
+  const handleEnable2FA = async (password: string) => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await authClient.twoFactor.enable({
+        password,
+        issuer: "Better Auth Next.js Demo",
+      });
 
-  // Handle enable 2FA success - Better Auth TOTP integration
-  useEffect(() => {
-    if (enableState.success && enableState.data) {
-      setQrCodeUri(enableState.data.totpURI);
-      setBackupCodes(enableState.data.backupCodes);
-      setShowQRCode(true);
-      toast.success(
-        "2FA enabled! Please scan the QR code with your authenticator app."
-      );
-    } else if (enableState.error) {
-      if (
-        enableState.error.includes("password") ||
-        enableState.error.includes("credentials")
-      ) {
-        toast.error(
-          "Invalid password or no password set. If you signed up with GitHub, you may need to set a password first."
-        );
-      } else {
-        toast.error(enableState.error);
+      if (error) {
+        if (
+          error.message?.includes("password") ||
+          error.message?.includes("credentials")
+        ) {
+          toast.error(
+            "Invalid password or no password set. If you signed up with GitHub, you may need to set a password first."
+          );
+        } else {
+          toast.error(error.message || "Failed to enable 2FA");
+        }
+        return;
       }
-    }
-  }, [enableState]);
 
-  // Handle verify 2FA success
-  useEffect(() => {
-    if (verifyState.success) {
+      if (data) {
+        setQrCodeUri(data.totpURI);
+        setBackupCodes(data.backupCodes);
+        setShowQRCode(true);
+        toast.success(
+          "2FA enabled! Please scan the QR code with your authenticator app."
+        );
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Failed to enable 2FA");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Verify TOTP using Better Auth client method
+  const handleVerifyTOTP = async (code: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await authClient.twoFactor.verifyTotp({ code });
+
+      if (error) {
+        toast.error(error.message || "Invalid verification code");
+        return;
+      }
+
       toast.success("2FA verified successfully!");
       setShowEnableFlow(false);
       setShowQRCode(false);
-      // The page will refresh automatically due to revalidatePath
-    } else if (verifyState.error) {
-      toast.error(verifyState.error);
+      router.refresh(); // Refresh to update the UI
+    } catch (error: any) {
+      toast.error(error.message || "Invalid verification code");
+    } finally {
+      setIsLoading(false);
     }
-  }, [verifyState]);
+  };
 
-  // Handle disable 2FA success
-  useEffect(() => {
-    if (disableState.success) {
+  // Disable 2FA using Better Auth client method
+  const handleDisable2FA = async (password: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await authClient.twoFactor.disable({ password });
+
+      if (error) {
+        toast.error(error.message || "Failed to disable 2FA");
+        return;
+      }
+
       toast.success("2FA disabled successfully");
-      // The page will refresh automatically due to revalidatePath
-    } else if (disableState.error) {
-      toast.error(disableState.error);
+      router.refresh(); // Refresh to update the UI
+    } catch (error: any) {
+      toast.error(error.message || "Failed to disable 2FA");
+    } finally {
+      setIsLoading(false);
     }
-  }, [disableState]);
-
-  const isPending = isEnabling || isVerifying || isDisabling;
+  };
 
   return (
     <Card>
@@ -126,7 +144,17 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
         )}
 
         {!user.twoFactorEnabled && showEnableFlow && !showQRCode && (
-          <form action={enableAction} className="space-y-4">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const password = formData.get("password") as string;
+              if (password) {
+                await handleEnable2FA(password);
+              }
+            }}
+            className="space-y-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="enable-password">Password</Label>
               <Input
@@ -134,29 +162,23 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
                 name="password"
                 type="password"
                 placeholder="Enter your account password"
-                disabled={isPending}
+                disabled={isLoading}
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
                 Required to verify your identity before enabling 2FA
               </p>
-              {"password" in enableState.fieldErrors &&
-                enableState.fieldErrors.password?.[0] && (
-                  <p className="text-sm text-red-600">
-                    {enableState.fieldErrors.password[0]}
-                  </p>
-                )}
             </div>
             <div className="flex gap-2">
-              <Button type="submit" disabled={isPending} className="flex-1">
-                {isEnabling ? "Enabling..." : "Enable 2FA"}
+              <Button type="submit" disabled={isLoading} className="flex-1">
+                {isLoading ? "Enabling..." : "Enable 2FA"}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setShowEnableFlow(false)}
                 className="flex-1"
-                disabled={isPending}
+                disabled={isLoading}
               >
                 Cancel
               </Button>
@@ -183,7 +205,17 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
               )}
             </div>
 
-            <form action={verifyAction} className="space-y-4">
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.currentTarget);
+                const code = formData.get("code") as string;
+                if (code) {
+                  await handleVerifyTOTP(code);
+                }
+              }}
+              className="space-y-4"
+            >
               <div className="space-y-2">
                 <Label htmlFor="verify-code">Verification Code</Label>
                 <Input
@@ -192,19 +224,13 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
                   type="text"
                   placeholder="Enter 6-digit code"
                   maxLength={6}
-                  disabled={isPending}
+                  disabled={isLoading}
                   required
                 />
-                {"code" in verifyState.fieldErrors &&
-                  verifyState.fieldErrors.code?.[0] && (
-                    <p className="text-sm text-red-600">
-                      {verifyState.fieldErrors.code[0]}
-                    </p>
-                  )}
               </div>
 
-              <Button type="submit" disabled={isPending} className="w-full">
-                {isVerifying ? "Verifying..." : "Verify & Complete Setup"}
+              <Button type="submit" disabled={isLoading} className="w-full">
+                {isLoading ? "Verifying..." : "Verify & Complete Setup"}
               </Button>
             </form>
 
@@ -229,7 +255,17 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
         )}
 
         {user.twoFactorEnabled && (
-          <form action={disableAction} className="space-y-4">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const password = formData.get("password") as string;
+              if (password) {
+                await handleDisable2FA(password);
+              }
+            }}
+            className="space-y-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="disable-password">Password</Label>
               <Input
@@ -237,23 +273,17 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
                 name="password"
                 type="password"
                 placeholder="Enter your password"
-                disabled={isPending}
+                disabled={isLoading}
                 required
               />
-              {"password" in disableState.fieldErrors &&
-                disableState.fieldErrors.password?.[0] && (
-                  <p className="text-sm text-red-600">
-                    {disableState.fieldErrors.password[0]}
-                  </p>
-                )}
             </div>
             <Button
               type="submit"
               variant="destructive"
-              disabled={isPending}
+              disabled={isLoading}
               className="w-full"
             >
-              {isDisabling ? "Disabling..." : "Disable 2FA"}
+              {isLoading ? "Disabling..." : "Disable 2FA"}
             </Button>
           </form>
         )}

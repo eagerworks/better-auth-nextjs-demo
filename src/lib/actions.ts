@@ -3,16 +3,12 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { betterFetch } from "@better-fetch/fetch";
 import {
   addCarSchema,
   addBrandSchema,
   addModelSchema,
   editCarSchema,
   setPasswordSchema,
-  enable2FASchema,
-  verify2FASchema,
-  disable2FASchema,
   createOrganizationSchema,
   inviteMemberSchema,
   assignBrandSchema,
@@ -26,18 +22,12 @@ import {
   deleteCar,
   assignBrandToOrganization,
 } from "@/lib/data";
-import type { Session } from "@/lib/auth";
 import { auth } from "@/lib/auth";
 
-// Helper function to validate session
 async function validateSession() {
-  const { data: session } = await betterFetch<Session>(
-    "/api/auth/get-session",
-    {
-      baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-      headers: await headers(),
-    }
-  );
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
   if (!session) {
     redirect("/sign-in");
@@ -121,13 +111,10 @@ export async function addCarAction(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    // Validate session
-    await validateSession();
+    const session = await validateSession();
 
-    // Parse form data safely
     const rawData = parseAddCarFormData(formData);
 
-    // Validate with Zod
     const validationResult = addCarSchema.safeParse(rawData);
 
     if (!validationResult.success) {
@@ -145,8 +132,11 @@ export async function addCarAction(
       };
     }
 
-    // Create the car
-    const car = await createCar(validationResult.data);
+    // Create the car with organization context for multi-tenant data isolation
+    const car = await createCar({
+      ...validationResult.data,
+      organizationId: session.session.activeOrganizationId,
+    });
 
     // Revalidate the dashboard page to show the new car
     revalidatePath("/dashboard");
@@ -170,13 +160,10 @@ export async function editCarAction(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    // Validate session
     await validateSession();
 
-    // Parse form data safely
     const rawData = parseEditCarFormData(formData);
 
-    // Validate with Zod
     const validationResult = editCarSchema.safeParse(rawData);
 
     if (!validationResult.success) {
@@ -219,10 +206,8 @@ export async function addBrandAction(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    // Validate session
-    await validateSession();
+    const session = await validateSession();
 
-    // Parse form data
     const name = formData.get("name");
     if (!name) {
       return {
@@ -234,7 +219,6 @@ export async function addBrandAction(
 
     const rawData = { name: name.toString() };
 
-    // Validate with Zod
     const validationResult = addBrandSchema.safeParse(rawData);
 
     if (!validationResult.success) {
@@ -252,10 +236,12 @@ export async function addBrandAction(
       };
     }
 
-    // Create the brand
-    const brand = await createBrand(validationResult.data);
+    // Create the brand with organization context for multi-tenant data isolation
+    const brand = await createBrand({
+      ...validationResult.data,
+      organizationId: session.session.activeOrganizationId,
+    });
 
-    // Revalidate relevant paths
     revalidatePath("/dashboard");
 
     return {
@@ -287,10 +273,8 @@ export async function addModelAction(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    // Validate session
     await validateSession();
 
-    // Parse form data
     const name = formData.get("name");
     const brandId = formData.get("brandId");
 
@@ -310,7 +294,6 @@ export async function addModelAction(
       brandId: brandId.toString(),
     };
 
-    // Validate with Zod
     const validationResult = addModelSchema.safeParse(rawData);
 
     if (!validationResult.success) {
@@ -331,7 +314,6 @@ export async function addModelAction(
     // Create the model
     const model = await createModel(validationResult.data);
 
-    // Revalidate relevant paths
     revalidatePath("/dashboard");
 
     return {
@@ -365,7 +347,6 @@ export async function deleteCarAction(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    // Validate session
     await validateSession();
 
     // Get car ID from form data
@@ -455,174 +436,8 @@ export async function setPasswordAction(prevState: any, formData: FormData) {
   }
 }
 
-// Add 2FA Actions
-export async function enable2FAAction(prevState: any, formData: FormData) {
-  try {
-    // Validate form data using Zod
-    const validatedFields = enable2FASchema.safeParse({
-      password: formData.get("password"),
-    });
-
-    if (!validatedFields.success) {
-      return {
-        success: false,
-        error: "Invalid form data",
-        fieldErrors: validatedFields.error.flatten().fieldErrors,
-      };
-    }
-
-    const { password } = validatedFields.data;
-
-    const response = await fetch(
-      `${
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      }/api/auth/two-factor/enable`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(await headers()),
-        },
-        body: JSON.stringify({ password }),
-      }
-    );
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: result.message || "Failed to enable 2FA",
-        fieldErrors: {},
-      };
-    }
-
-    return {
-      success: true,
-      data: result,
-      fieldErrors: {},
-    };
-  } catch (error: any) {
-    console.error("Enable 2FA error:", error);
-    return {
-      success: false,
-      error: error.message || "Failed to enable 2FA",
-      fieldErrors: {},
-    };
-  }
-}
-
-export async function verify2FAAction(prevState: any, formData: FormData) {
-  try {
-    // Validate form data using Zod
-    const validatedFields = verify2FASchema.safeParse({
-      code: formData.get("code"),
-    });
-
-    if (!validatedFields.success) {
-      return {
-        success: false,
-        error: "Invalid form data",
-        fieldErrors: validatedFields.error.flatten().fieldErrors,
-      };
-    }
-
-    const { code } = validatedFields.data;
-
-    const response = await fetch(
-      `${
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      }/api/auth/two-factor/verify-totp`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(await headers()),
-        },
-        body: JSON.stringify({ code }),
-      }
-    );
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: result.message || "Invalid verification code",
-        fieldErrors: {},
-      };
-    }
-
-    revalidatePath("/dashboard");
-    return {
-      success: true,
-      fieldErrors: {},
-    };
-  } catch (error: any) {
-    console.error("Verify 2FA error:", error);
-    return {
-      success: false,
-      error: error.message || "Invalid verification code",
-      fieldErrors: {},
-    };
-  }
-}
-
-export async function disable2FAAction(prevState: any, formData: FormData) {
-  try {
-    // Validate form data using Zod
-    const validatedFields = disable2FASchema.safeParse({
-      password: formData.get("password"),
-    });
-
-    if (!validatedFields.success) {
-      return {
-        success: false,
-        error: "Invalid form data",
-        fieldErrors: validatedFields.error.flatten().fieldErrors,
-      };
-    }
-
-    const { password } = validatedFields.data;
-
-    const response = await fetch(
-      `${
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      }/api/auth/two-factor/disable`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(await headers()),
-        },
-        body: JSON.stringify({ password }),
-      }
-    );
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: result.message || "Failed to disable 2FA",
-        fieldErrors: {},
-      };
-    }
-
-    revalidatePath("/dashboard");
-    return {
-      success: true,
-      fieldErrors: {},
-    };
-  } catch (error: any) {
-    console.error("Disable 2FA error:", error);
-    return {
-      success: false,
-      error: error.message || "Failed to disable 2FA",
-      fieldErrors: {},
-    };
-  }
-}
+// Note: 2FA actions removed - now handled client-side using Better Auth client methods
+// See components/auth/two-factor-settings.tsx for the new implementation
 
 // Organization Actions
 export async function createOrganizationAction(
@@ -776,7 +591,6 @@ export async function assignBrandAction(
   formData: FormData
 ): Promise<ActionResult> {
   try {
-    // Validate session
     const session = await validateSession();
 
     // Get active organization
@@ -789,7 +603,6 @@ export async function assignBrandAction(
       };
     }
 
-    // Parse form data
     const brandId = formData.get("brandId");
     if (!brandId) {
       return {
@@ -801,7 +614,6 @@ export async function assignBrandAction(
 
     const rawData = { brandId: brandId.toString() };
 
-    // Validate with Zod
     const validationResult = assignBrandSchema.safeParse(rawData);
 
     if (!validationResult.success) {
@@ -825,7 +637,6 @@ export async function assignBrandAction(
       activeOrganizationId
     );
 
-    // Revalidate relevant paths
     revalidatePath("/dashboard");
 
     return {
