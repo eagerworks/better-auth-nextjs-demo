@@ -78,6 +78,7 @@ export async function createCar(data: {
   price: number;
   color: string;
   mileage: number;
+  organizationId?: string | null;
 }) {
   return await prisma.car.create({
     data: {
@@ -86,6 +87,7 @@ export async function createCar(data: {
       price: data.price,
       color: data.color,
       mileage: data.mileage,
+      organizationId: data.organizationId || null,
     },
     include: {
       model: {
@@ -134,10 +136,14 @@ export async function getCarById(id: string) {
 }
 
 // Create a new brand
-export async function createBrand(data: { name: string }) {
+export async function createBrand(data: {
+  name: string;
+  organizationId?: string | null;
+}) {
   return await prisma.brand.create({
     data: {
       name: data.name,
+      organizationId: data.organizationId || null,
     },
   });
 }

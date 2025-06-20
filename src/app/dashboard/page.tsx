@@ -1,7 +1,7 @@
 import { getDashboardData, getActiveOrganization } from "@/lib/data";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { betterFetch } from "@better-fetch/fetch";
+import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -13,17 +13,11 @@ import { TwoFactorSettings } from "@/components/auth/two-factor-settings";
 import { SetPasswordForm } from "@/components/auth/set-password-form";
 import { OrganizationSettings } from "@/components/auth/organization-settings";
 
-import type { Session } from "@/lib/auth";
-
 export default async function DashboardPage() {
-  // Server-side session validation - no tokens exposed to client
-  const { data: session } = await betterFetch<Session>(
-    "/api/auth/get-session",
-    {
-      baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-      headers: await headers(),
-    }
-  );
+  // Server-side session validation using Better Auth's recommended approach
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
   if (!session) {
     redirect("/sign-in");
