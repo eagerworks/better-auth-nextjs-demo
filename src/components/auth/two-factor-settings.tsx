@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { authClient } from "@/lib/auth-client";
+import { twoFactor } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
+
+const { enable, disable, verifyTotp } = twoFactor;
 
 interface TwoFactorSettingsProps {
   user: {
@@ -27,7 +29,7 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
   const handleEnable2FA = async (password: string) => {
     setIsLoading(true);
     try {
-      const { data, error } = await authClient.twoFactor.enable({
+      const { data, error } = await enable({
         password,
         issuer: "Better Auth Next.js Demo",
       });
@@ -65,12 +67,7 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
   const handleVerifyTOTP = async (code: string) => {
     setIsLoading(true);
     try {
-      const { error } = await authClient.twoFactor.verifyTotp({ code });
-
-      if (error) {
-        toast.error(error.message || "Invalid verification code");
-        return;
-      }
+      await verifyTotp({ code });
 
       toast.success("2FA verified successfully!");
       setShowEnableFlow(false);
@@ -87,12 +84,7 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
   const handleDisable2FA = async (password: string) => {
     setIsLoading(true);
     try {
-      const { error } = await authClient.twoFactor.disable({ password });
-
-      if (error) {
-        toast.error(error.message || "Failed to disable 2FA");
-        return;
-      }
+      await disable({ password });
 
       toast.success("2FA disabled successfully");
       router.refresh(); // Refresh to update the UI

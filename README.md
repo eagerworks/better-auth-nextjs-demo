@@ -214,7 +214,72 @@ export async function getCars(organizationId?: string | null) {
 }
 ```
 
+### Better Auth Client Methods (Recommended)
+
+For authentication operations, use Better Auth's secure client methods instead of custom server actions:
+
+```typescript
+// auth-client.ts - Export only methods that are actually used
+export const twoFactor = {
+  enable: authClient.twoFactor.enable,
+  disable: authClient.twoFactor.disable,
+  verifyTotp: authClient.twoFactor.verifyTotp,
+};
+
+export const organization = {
+  create: authClient.organization.create,
+  setActive: authClient.organization.setActive,
+  inviteMember: authClient.organization.inviteMember,
+};
+```
+
+**Pattern 1: Try-Catch (when you don't need response data)**
+
+```typescript
+const handleCreateOrganization = async (formData: FormData) => {
+  setIsLoading(true);
+  try {
+    await organization.create({ name, slug });
+    toast.success("Organization created successfully!");
+    router.refresh();
+  } catch (error: any) {
+    toast.error(error.message || "Failed to create organization");
+  } finally {
+    setIsLoading(false);
+  }
+};
+```
+
+**Pattern 2: { data, error } (when you need response data)**
+
+```typescript
+const handleEnable2FA = async (password: string) => {
+  try {
+    const { data, error } = await twoFactor.enable({ password });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    // Use the data
+    setQrCodeUri(data.totpURI);
+    setBackupCodes(data.backupCodes);
+  } catch (error: any) {
+    toast.error(error.message);
+  }
+};
+```
+
+**Benefits:**
+
+- ✅ Built-in CSRF protection
+- ✅ Secure cookie management
+- ✅ Proper session validation
+- ✅ Rate limiting and security headers
+- ✅ Cleaner code with better error handling
+
 ### Server Actions with Validation
+
+For non-auth operations, continue using server actions:
 
 ```typescript
 export async function addCarAction(

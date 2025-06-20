@@ -18,3 +18,15 @@ export const authClient = createAuthClient({
 });
 
 export const { signIn, signUp, signOut, useSession, getSession } = authClient;
+
+export const twoFactor = {
+  enable: authClient.twoFactor.enable,
+  disable: authClient.twoFactor.disable,
+  verifyTotp: authClient.twoFactor.verifyTotp,
+};
+
+export const organization = {
+  create: authClient.organization.create,
+  setActive: authClient.organization.setActive,
+  inviteMember: authClient.organization.inviteMember,
+};

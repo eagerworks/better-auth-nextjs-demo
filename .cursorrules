@@ -56,6 +56,67 @@ async function validateSession() {
 - Import client plugins: `twoFactorClient`, `organizationClient`
 - Handle 2FA redirects in client configuration
 
+### Better Auth Client Methods (Preferred for Auth Operations)
+
+- **ALWAYS use Better Auth client methods** for authentication operations instead of custom server actions
+- Client methods provide built-in CSRF protection, secure cookie management, and proper session validation
+- **Only export methods that are actually used** for better tree shaking
+
+**Export Pattern**:
+
+```typescript
+// Export only methods that are actually used
+export const twoFactor = {
+  enable: authClient.twoFactor.enable,
+  disable: authClient.twoFactor.disable,
+  verifyTotp: authClient.twoFactor.verifyTotp,
+};
+
+export const organization = {
+  create: authClient.organization.create,
+  setActive: authClient.organization.setActive,
+  inviteMember: authClient.organization.inviteMember,
+};
+```
+
+**Pattern 1: Try-Catch (when you don't need response data)**:
+
+```typescript
+const handleOperation = async (data: any) => {
+  setIsLoading(true);
+  try {
+    await clientMethod(data);
+    toast.success("Operation successful!");
+    router.refresh();
+  } catch (error: any) {
+    toast.error(error.message || "Operation failed");
+  } finally {
+    setIsLoading(false);
+  }
+};
+```
+
+**Pattern 2: { data, error } (when you need response data)**:
+
+```typescript
+const handleOperationWithData = async (input: any) => {
+  try {
+    const { data, error } = await clientMethod(input);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    // Use the response data
+    setSomeState(data.someProperty);
+  } catch (error: any) {
+    toast.error(error.message);
+  }
+};
+```
+
+**Use client methods for**: 2FA operations, organization management, session operations
+**Use server actions for**: Business logic, data mutations, complex validations
+
 ## 🗄️ Database & Prisma Patterns
 
 ### Schema Management
@@ -140,6 +201,15 @@ export async function actionName(
 ## 📝 Form Patterns
 
 ### Form Components
+
+**For Authentication Operations (2FA, Organizations)**:
+
+- Use Better Auth client methods with try-catch or { data, error } patterns
+- Handle loading states with `useState`
+- Use toast notifications for immediate feedback
+- Call `router.refresh()` after successful operations
+
+**For Business Logic Operations (Cars, etc.)**:
 
 - Use `useActionState` hook for server actions
 - Pattern: `const [state, formAction, isPending] = useActionState(action, FORM_INITIAL_STATE);`

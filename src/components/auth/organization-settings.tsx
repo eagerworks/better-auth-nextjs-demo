@@ -1,17 +1,14 @@
 "use client";
 
-import { useActionState, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  createOrganizationAction,
-  inviteMemberAction,
-  switchOrganizationAction,
-} from "@/lib/actions";
+import { organization } from "@/lib/auth-client";
 import type { UserOrganization } from "@/lib/types";
-import { FORM_INITIAL_STATE } from "@/lib/constants";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface OrganizationSettingsProps {
   organizations: UserOrganization[];
@@ -20,17 +17,56 @@ interface OrganizationSettingsProps {
 export function OrganizationSettings({
   organizations,
 }: OrganizationSettingsProps) {
-  const [createState, createFormAction] = useActionState(
-    createOrganizationAction,
-    FORM_INITIAL_STATE
-  );
-
-  const [switchState, switchFormAction] = useActionState(
-    switchOrganizationAction,
-    FORM_INITIAL_STATE
-  );
-
+  const router = useRouter();
+  const [isCreating, setIsCreating] = useState(false);
+  const [isSwitching, setIsSwitching] = useState<string | null>(null);
   const [showInviteForm, setShowInviteForm] = useState<string | null>(null);
+
+  const { create, setActive, inviteMember } = organization;
+
+  const handleCreateOrganization = async (formData: FormData) => {
+    setIsCreating(true);
+
+    try {
+      const name = formData.get("name") as string;
+      const slug =
+        (formData.get("slug") as string) ||
+        name
+          ?.trim()
+          .toLowerCase()
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9-]/g, "");
+
+      await create({
+        name,
+        slug,
+      });
+
+      toast.success("Organization created successfully!");
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create organization");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleSwitchOrganization = async (organizationId: string) => {
+    setIsSwitching(organizationId);
+
+    try {
+      await setActive({
+        organizationId,
+      });
+
+      toast.success("Organization switched successfully!");
+      router.refresh();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to switch organization");
+    } finally {
+      setIsSwitching(null);
+    }
+  };
 
   return (
     <Card>
@@ -42,7 +78,7 @@ export function OrganizationSettings({
       <CardContent className="space-y-6">
         <div>
           <h3 className="font-semibold mb-3">Create New Organization</h3>
-          <form action={createFormAction} className="space-y-3">
+          <form action={handleCreateOrganization} className="space-y-3">
             <div className="space-y-2">
               <Label htmlFor="org-name">Organization Name</Label>
               <Input
@@ -50,40 +86,23 @@ export function OrganizationSettings({
                 name="name"
                 placeholder="My Company"
                 required
+                disabled={isCreating}
               />
-              {createState.fieldErrors &&
-                "name" in createState.fieldErrors &&
-                createState.fieldErrors.name?.[0] && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {createState.fieldErrors.name[0]}
-                  </p>
-                )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="org-slug">Slug (optional)</Label>
-              <Input id="org-slug" name="slug" placeholder="my-company" />
-              {createState.fieldErrors &&
-                "slug" in createState.fieldErrors &&
-                createState.fieldErrors.slug?.[0] && (
-                  <p className="text-sm text-red-600 mt-1">
-                    {createState.fieldErrors.slug[0]}
-                  </p>
-                )}
+              <Input
+                id="org-slug"
+                name="slug"
+                placeholder="my-company"
+                disabled={isCreating}
+              />
             </div>
 
-            <Button type="submit" className="w-full">
-              Create Organization
+            <Button type="submit" className="w-full" disabled={isCreating}>
+              {isCreating ? "Creating..." : "Create Organization"}
             </Button>
-
-            {createState.error && (
-              <p className="text-sm text-red-600">{createState.error}</p>
-            )}
-            {createState.success && (
-              <p className="text-sm text-green-600">
-                Organization created successfully!
-              </p>
-            )}
           </form>
         </div>
 
@@ -99,16 +118,14 @@ export function OrganizationSettings({
                       <p className="text-sm text-gray-600">Slug: {org.slug}</p>
                     </div>
                     <div className="flex gap-2">
-                      <form action={switchFormAction}>
-                        <input
-                          type="hidden"
-                          name="organizationId"
-                          value={org.id}
-                        />
-                        <Button size="sm" variant="outline" type="submit">
-                          Switch
-                        </Button>
-                      </form>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleSwitchOrganization(org.id)}
+                        disabled={isSwitching === org.id}
+                      >
+                        {isSwitching === org.id ? "Switching..." : "Switch"}
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
@@ -134,15 +151,6 @@ export function OrganizationSettings({
             </div>
           </div>
         )}
-
-        {switchState.error && (
-          <p className="text-sm text-red-600">{switchState.error}</p>
-        )}
-        {switchState.success && (
-          <p className="text-sm text-green-600">
-            Organization switched successfully!
-          </p>
-        )}
       </CardContent>
     </Card>
   );
@@ -155,27 +163,40 @@ function InviteForm({
   organizationId: string;
   onCancel: () => void;
 }) {
-  const [inviteState, inviteFormAction] = useActionState(
-    inviteMemberAction,
-    FORM_INITIAL_STATE
-  );
+  const router = useRouter();
+  const [isInviting, setIsInviting] = useState(false);
+  const { inviteMember } = organization;
 
-  // Close form on success - Better Auth organization plugin integration
-  useEffect(() => {
-    if (inviteState.success) {
-      const timer = setTimeout(() => {
+  const handleInviteMember = async (formData: FormData) => {
+    setIsInviting(true);
+
+    try {
+      const email = formData.get("email") as string;
+      const role = formData.get("role") as "member" | "admin";
+
+      await inviteMember({
+        email,
+        role,
+        organizationId,
+      });
+
+      toast.success("Invitation sent successfully!");
+      router.refresh();
+      // Close form after successful invite
+      setTimeout(() => {
         onCancel();
-      }, 2000);
-      return () => clearTimeout(timer);
+      }, 1000);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send invitation");
+    } finally {
+      setIsInviting(false);
     }
-  }, [inviteState.success, onCancel]);
+  };
 
   return (
     <div className="mt-3 p-3 border-t">
       <h5 className="font-medium mb-2">Invite Member</h5>
-      <form action={inviteFormAction} className="space-y-2">
-        <input type="hidden" name="organizationId" value={organizationId} />
-
+      <form action={handleInviteMember} className="space-y-2">
         <div className="space-y-2">
           <Label htmlFor={`email-${organizationId}`}>Email</Label>
           <Input
@@ -184,14 +205,8 @@ function InviteForm({
             type="email"
             placeholder="member@example.com"
             required
+            disabled={isInviting}
           />
-          {inviteState.fieldErrors &&
-            "email" in inviteState.fieldErrors &&
-            inviteState.fieldErrors.email?.[0] && (
-              <p className="text-sm text-red-600 mt-1">
-                {inviteState.fieldErrors.email[0]}
-              </p>
-            )}
         </div>
 
         <div className="space-y-2">
@@ -200,36 +215,21 @@ function InviteForm({
             id={`role-${organizationId}`}
             name="role"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            disabled={isInviting}
           >
             <option value="member">Member</option>
             <option value="admin">Admin</option>
           </select>
-          {inviteState.fieldErrors &&
-            "role" in inviteState.fieldErrors &&
-            inviteState.fieldErrors.role?.[0] && (
-              <p className="text-sm text-red-600 mt-1">
-                {inviteState.fieldErrors.role[0]}
-              </p>
-            )}
         </div>
 
         <div className="flex gap-2">
-          <Button type="submit" size="sm">
-            Send Invite
+          <Button type="submit" size="sm" disabled={isInviting}>
+            {isInviting ? "Sending..." : "Send Invite"}
           </Button>
           <Button type="button" size="sm" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
         </div>
-
-        {inviteState.error && (
-          <p className="text-sm text-red-600">{inviteState.error}</p>
-        )}
-        {inviteState.success && (
-          <p className="text-sm text-green-600">
-            Invitation sent successfully!
-          </p>
-        )}
       </form>
     </div>
   );
