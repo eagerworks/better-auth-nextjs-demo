@@ -94,7 +94,7 @@ model Model {
 model Car {
   id        String   @id @default(cuid())
   year      Int
-  price     Decimal  @db.Decimal(10, 2)
+  price     Int
   color     String
   mileage   Int      @default(0)
   modelId   String

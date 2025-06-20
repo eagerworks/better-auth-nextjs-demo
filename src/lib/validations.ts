@@ -24,6 +24,66 @@ export const signUpSchema = z
     path: ["confirmPassword"],
   });
 
+// Car form validation
+export const addCarSchema = z.object({
+  brandId: z.string().min(1, "Please select a brand"),
+  modelId: z.string().min(1, "Please select a model"),
+  year: z
+    .number()
+    .int("Year must be a whole number")
+    .min(1900, "Year must be 1900 or later")
+    .max(new Date().getFullYear() + 1, "Year cannot be in the future"),
+  price: z
+    .number()
+    .int("Price must be a whole number")
+    .positive("Price must be greater than 0")
+    .max(9999999, "Price cannot exceed $9,999,999"),
+  color: z
+    .string()
+    .min(1, "Color is required")
+    .max(50, "Color must be less than 50 characters"),
+  mileage: z
+    .number()
+    .int("Mileage must be a whole number")
+    .min(0, "Mileage cannot be negative")
+    .max(999999, "Mileage cannot exceed 999,999"),
+});
+
+// Edit car validation (only price and mileage)
+export const editCarSchema = z.object({
+  id: z.string().min(1, "Car ID is required"),
+  price: z
+    .number()
+    .int("Price must be a whole number")
+    .positive("Price must be greater than 0")
+    .max(9999999, "Price cannot exceed $9,999,999"),
+  mileage: z
+    .number()
+    .int("Mileage must be a whole number")
+    .min(0, "Mileage cannot be negative")
+    .max(999999, "Mileage cannot exceed 999,999"),
+});
+
+// Brand and Model creation schemas
+export const addBrandSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Brand name is required")
+    .max(100, "Brand name must be less than 100 characters"),
+});
+
+export const addModelSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Model name is required")
+    .max(100, "Model name must be less than 100 characters"),
+  brandId: z.string().min(1, "Please select a brand"),
+});
+
 // Type inference for forms
 export type SignInFormData = z.infer<typeof signInSchema>;
 export type SignUpFormData = z.infer<typeof signUpSchema>;
+export type AddCarFormData = z.infer<typeof addCarSchema>;
+export type EditCarFormData = z.infer<typeof editCarSchema>;
+export type AddBrandFormData = z.infer<typeof addBrandSchema>;
+export type AddModelFormData = z.infer<typeof addModelSchema>;

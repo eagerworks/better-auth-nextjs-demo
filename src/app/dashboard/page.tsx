@@ -1,10 +1,13 @@
-import { getCars, getCarStats } from "@/lib/data";
+import { getCars, getBrandsForForm } from "@/lib/data";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { betterFetch } from "@better-fetch/fetch";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { AddCarForm } from "@/components/cars/add-car-form";
+import { EditCarDialog } from "@/components/cars/edit-car-dialog";
+import { DeleteCarDialog } from "@/components/cars/delete-car-dialog";
 import type { Session } from "@/lib/auth";
 
 export default async function DashboardPage() {
@@ -21,8 +24,7 @@ export default async function DashboardPage() {
     redirect("/sign-in");
   }
 
-  // Server-side data fetching - secure and efficient
-  const [cars, stats] = await Promise.all([getCars(), getCarStats()]);
+  const [cars, brands] = await Promise.all([getCars(), getBrandsForForm()]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -53,49 +55,15 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Total Cars</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">
-                {stats.totalCars}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Average Price</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">
-                $
-                {stats.avgPrice
-                  ? Math.round(Number(stats.avgPrice)).toLocaleString()
-                  : "0"}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg">Brands Available</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-purple-600">
-                {stats.brandStats.length}
-              </div>
-            </CardContent>
-          </Card>
+        {/* Add Car Form */}
+        <div className="mb-6">
+          <AddCarForm brands={brands} />
         </div>
 
         {/* Cars Inventory */}
         <Card>
           <CardHeader>
-            <CardTitle>Car Inventory</CardTitle>
+            <CardTitle>Car Inventory ({cars.length} cars)</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -106,8 +74,9 @@ export default async function DashboardPage() {
                     <th className="text-left py-2">Model</th>
                     <th className="text-left py-2">Year</th>
                     <th className="text-left py-2">Color</th>
-                    <th className="text-left py-2">Mileage</th>
+                    <th className="text-left py-2">Kilometers</th>
                     <th className="text-left py-2">Price</th>
+                    <th className="text-left py-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -126,10 +95,16 @@ export default async function DashboardPage() {
                         {car.color}
                       </td>
                       <td className="py-3">
-                        {car.mileage.toLocaleString()} mi
+                        {car.mileage.toLocaleString()} km
                       </td>
                       <td className="py-3 font-semibold text-green-600">
-                        ${Number(car.price).toLocaleString()}
+                        ${car.price.toLocaleString()}
+                      </td>
+                      <td className="py-3">
+                        <div className="flex gap-2">
+                          <EditCarDialog car={car} />
+                          <DeleteCarDialog car={car} />
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -166,6 +141,10 @@ export default async function DashboardPage() {
               <li>
                 <strong>Sensitive data</strong> never leaves the server
                 environment
+              </li>
+              <li>
+                <strong>Server Actions</strong> provide secure, type-safe
+                mutations with built-in CSRF protection
               </li>
             </ul>
           </CardContent>
