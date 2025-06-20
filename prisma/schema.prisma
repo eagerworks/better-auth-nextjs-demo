@@ -82,10 +82,13 @@ model Verification {
 }
 
 model Brand {
-  id     String  @id @default(cuid())
-  name   String  @unique
-  models Model[]
+  id             String        @id @default(cuid())
+  name           String
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  models         Model[]
 
+  @@unique([name, organizationId])
   @@map("brand")
 }
 
@@ -101,15 +104,17 @@ model Model {
 }
 
 model Car {
-  id        String   @id @default(cuid())
-  year      Int
-  price     Int
-  color     String
-  mileage   Int      @default(0)
-  modelId   String
-  model     Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String        @id @default(cuid())
+  year           Int
+  price          Int
+  color          String
+  mileage        Int           @default(0)
+  modelId        String
+  model          Model         @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@map("car")
 }
@@ -134,6 +139,8 @@ model Organization {
 
   members     Member[]
   invitations Invitation[]
+  Brand       Brand[]
+  Car         Car[]
 
   @@unique([slug])
   @@map("organization")
