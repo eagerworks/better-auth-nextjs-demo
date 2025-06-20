@@ -24,6 +24,11 @@ model User {
   accounts      Account[]
   sessions      Session[]
 
+  twoFactorEnabled Boolean?
+  twofactors       TwoFactor[]
+  members          Member[]
+  invitations      Invitation[]
+
   @@map("user")
 }
 
@@ -37,6 +42,8 @@ model Session {
   userAgent String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  activeOrganizationId String?
 
   @@map("session")
 }
@@ -57,6 +64,8 @@ model Account {
   scope                 String?
   createdAt             DateTime
   updatedAt             DateTime
+
+  expiresAt DateTime?
 
   @@map("account")
 }
@@ -103,4 +112,55 @@ model Car {
   updatedAt DateTime @updatedAt
 
   @@map("car")
+}
+
+model TwoFactor {
+  id          String @id
+  secret      String
+  backupCodes String
+  userId      String
+  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("twoFactor")
+}
+
+model Organization {
+  id        String   @id
+  name      String
+  slug      String?
+  logo      String?
+  createdAt DateTime
+  metadata  String?
+
+  members     Member[]
+  invitations Invitation[]
+
+  @@unique([slug])
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  createdAt      DateTime
+
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@map("invitation")
 }
