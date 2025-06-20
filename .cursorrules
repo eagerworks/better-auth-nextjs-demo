@@ -1,0 +1,374 @@
+# Better Auth Next.js Demo - AI Behavior Rules
+
+## 🔧 Package Management
+
+- **ALWAYS use `pnpm`** for package management (not npm or yarn)
+- Use `pnpx` for running packages (not npx)
+- Commands: `pnpm install`, `pnpm dev`, `pnpm build`
+- **Prisma commands**: `pnpm db:generate`, `pnpm db:push`, `pnpm db:seed`
+
+## 🔐 Authentication Patterns
+
+### Better Auth Configuration
+
+- **ALWAYS use Better Auth** for authentication features
+- Import plugins from `better-auth/plugins` (twoFactor, organization)
+- Configure in `src/lib/auth.ts` with prismaAdapter
+- Use betterFetch for session management, never raw fetch for auth
+- Auth API endpoint: `src/app/api/auth/[...all]/route.ts`
+
+### Session Management
+
+- **ALWAYS use Better Auth's direct API** instead of HTTP calls for session management
+- **React Server Components**: Use `auth.api.getSession({ headers: await headers() })`
+- **Middleware**: Use `getSessionCookie(request)` from `better-auth/cookies` for performance
+- **Server Actions**: Use `auth.api.getSession({ headers: await headers() })` for validation
+- Include organization context in session data
+
+**RSC Session Pattern** (Recommended):
+
+```typescript
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
+
+// In React Server Components
+const session = await auth.api.getSession({
+  headers: await headers(),
+});
+if (!session) redirect("/sign-in");
+```
+
+**Server Action Session Pattern**:
+
+```typescript
+async function validateSession() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session) redirect("/sign-in");
+  return session;
+}
+```
+
+### Client Auth
+
+- Use `authClient` from `src/lib/auth-client.ts`
+- Import client plugins: `twoFactorClient`, `organizationClient`
+- Handle 2FA redirects in client configuration
+
+## 🗄️ Database & Prisma Patterns
+
+### Schema Management
+
+- **CRITICAL**: Any Better Auth plugin added requires database migration
+- Run `pnpm db:push` after auth config changes
+- Organization plugin adds tables: Organization, Member, Invitation
+- 2FA plugin adds TwoFactor table
+- Better Auth manages schema automatically via prismaAdapter
+
+### Data Access Patterns
+
+- All queries in `src/lib/data.ts`
+- **ALWAYS use singleton Prisma instance**: Import `{ prisma }` from `"./data"` - never create new `PrismaClient()` instances
+- **ALWAYS respect organization context** in queries:
+
+```typescript
+export async function getCars(organizationId?: string | null) {
+  return await prisma.car.findMany({
+    where: { organizationId: organizationId || null },
+    // ... include relations
+  });
+}
+```
+
+- Use Prisma's built-in types for TypeScript inference
+- Include relations with `include` for complex queries
+- Order results consistently (brand → model → year)
+
+### Multi-Tenant Data Isolation
+
+- Filter ALL data by organizationId when organization context exists
+- Use `session.session.activeOrganizationId` for current org context
+- Support both organization-scoped and global (null organizationId) data
+- Validate organization membership in server actions
+
+## 🎯 Server Actions Architecture
+
+### Action Structure
+
+- All server actions in `src/lib/actions.ts`
+- Use `"use server"` directive
+- Follow consistent pattern:
+
+```typescript
+export async function actionName(
+  prevState: ActionResult,
+  formData: FormData
+): Promise<ActionResult> {
+  // 1. Validate session
+  await validateSession();
+
+  // 2. Parse FormData safely
+  const rawData = parseFormData(formData);
+
+  // 3. Zod validation
+  const validationResult = schema.safeParse(rawData);
+
+  // 4. Database operation
+  const result = await dbOperation(validationResult.data);
+
+  // 5. Revalidate UI
+  revalidatePath("/dashboard");
+
+  return { success: true, data: result };
+}
+```
+
+### Error Handling
+
+- Catch and return structured errors
+- Handle unique constraint violations
+- Return field-specific errors for forms
+- Use consistent ActionResult type
+
+### Form Data Parsing
+
+- Create helper functions for complex form parsing
+- Handle type conversion (string → number)
+- Validate required fields before Zod validation
+
+## 📝 Form Patterns
+
+### Form Components
+
+- Use `useActionState` hook for server actions
+- Pattern: `const [state, formAction, isPending] = useActionState(action, FORM_INITIAL_STATE);`
+- Import `FORM_INITIAL_STATE` from `src/lib/constants.ts`
+- Handle success/error with `useEffect` and toast notifications
+
+### Validation
+
+- All form validation schemas in `src/lib/validations.ts`
+- Use Zod for both client and server validation
+- Export TypeScript types: `export type FormData = z.infer<typeof schema>;`
+- Field-specific error display pattern:
+
+```typescript
+{
+  state.fieldErrors?.fieldName && (
+    <p className="text-sm text-red-600">{state.fieldErrors.fieldName}</p>
+  );
+}
+```
+
+### Dynamic Forms
+
+- Use `useEffect` for dependent field updates (brand → models)
+- Disable dependent fields until parent is selected
+- Show loading states for async operations
+- Create separate actions for data fetching (`getModelsAction`)
+
+## 🎨 UI Components
+
+### Component Structure
+
+- UI components in `src/components/ui/`
+- Feature components in domain folders (`auth/`, `cars/`)
+- Use Card, Button, Input, Label from UI components
+- Consistent spacing with Tailwind classes
+
+### Loading States
+
+- Show pending states with `isPending` from `useActionState`
+- Disable buttons during operations
+- Use descriptive loading text ("Adding Car..." vs "Loading...")
+
+### Error Display
+
+- Toast notifications for success/error states
+- Field-specific errors below inputs
+- General errors at form level
+
+## 🔄 State Management
+
+### Page Data
+
+- Fetch data at page level in server components
+- Pass data down to client components as props
+- Use `getDashboardData()` pattern for complex data needs
+- Combine multiple queries with `Promise.all`
+
+### Revalidation
+
+- Use `revalidatePath("/dashboard")` after mutations
+- Revalidate specific paths, not entire app
+- Handle optimistic updates in client components
+
+## 🛡️ Security Patterns
+
+### Route Protection
+
+- **Middleware location**: Must be in `src/middleware.ts` (not project root) for this project setup
+- Use `getSessionCookie(request)` from `better-auth/cookies` for optimal performance
+- Define public and protected routes arrays
+- Handle redirects based on authentication state
+
+**Middleware Pattern** (Recommended):
+
+```typescript
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getSessionCookie } from "better-auth/cookies";
+
+const publicRoutes = ["/", "/sign-in", "/sign-up", "/api/auth"];
+const protectedRoutes = ["/dashboard"];
+
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  const isPublicRoute = publicRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
+  const isProtectedRoute = protectedRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
+
+  if (isPublicRoute && !isProtectedRoute) {
+    return NextResponse.next();
+  }
+
+  // Fast cookie check - no database calls
+  const sessionCookie = getSessionCookie(request);
+
+  if (!sessionCookie && isProtectedRoute) {
+    return NextResponse.redirect(new URL("/sign-in", request.url));
+  }
+
+  if (sessionCookie && (pathname === "/sign-in" || pathname === "/sign-up")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  return NextResponse.next();
+}
+```
+
+### Organization Security
+
+- Validate organization membership in server actions
+- Use active organization from session context
+- Never expose organization data across tenants
+- Filter all queries by organization context
+
+## 📁 Project Structure
+
+### File Organization
+
+```
+src/
+├── app/
+│   ├── api/auth/[...all]/route.ts  # Better Auth endpoint
+│   ├── (auth)/                     # Auth route group
+│   └── dashboard/                  # Protected routes
+├── components/
+│   ├── auth/                       # Auth-specific components
+│   ├── [domain]/                   # Domain components (cars, etc.)
+│   └── ui/                         # Reusable UI components
+├── lib/
+│   ├── auth.ts                     # Server auth config
+│   ├── auth-client.ts              # Client auth config
+│   ├── actions.ts                  # All server actions
+│   ├── data.ts                     # Database queries
+│   ├── validations.ts              # Zod schemas
+│   ├── types.ts                    # TypeScript types
+│   └── constants.ts                # Shared constants
+└── middleware.ts                   # Route protection (MUST be in src/ for this project)
+```
+
+### Import Patterns
+
+- Use absolute imports with `@/` prefix
+- Group imports: React → Next.js → External → Internal
+- Import types with `type` keyword
+
+## 🚀 Development Workflow
+
+### Adding New Features
+
+1. Define Zod schema in `validations.ts`
+2. Create server action in `actions.ts`
+3. Add database queries in `data.ts`
+4. Build form component with `useActionState`
+5. Add types in `types.ts`
+6. Update middleware if needed
+
+### Database Changes
+
+1. Modify `prisma/schema.prisma`
+2. Run `pnpm db:push` for development
+3. Run `pnpm db:generate` to update types
+4. Update TypeScript types in `types.ts`
+
+### Better Auth Plugin Integration
+
+1. Add plugin to `auth.ts` configuration
+2. Add client plugin to `auth-client.ts` if needed
+3. Run `pnpm db:push` to sync schema changes
+4. Create UI components for plugin features
+5. Add server actions for plugin operations
+
+## 🔍 Code Quality
+
+### TypeScript
+
+- Use strict type checking
+- Prefer `type` over `interface`
+- Use Prisma-generated types where possible
+- Export types for form data and API responses
+
+### Error Handling
+
+- Never throw unhandled errors in server actions
+- Return structured error responses
+- Use proper HTTP status codes
+- Log errors for debugging
+
+### Performance
+
+- Use `Promise.all` for parallel operations
+- Implement proper loading states
+- Use `revalidatePath` sparingly and specifically
+- Optimize database queries with proper indexes
+
+## 📖 Documentation Requirements
+
+### Comments
+
+- Document complex business logic
+- Explain Better Auth plugin integrations
+- Add JSDoc for public functions
+- Comment security-sensitive operations
+
+### Naming Conventions
+
+- Use descriptive variable names
+- Action functions end with "Action"
+- Types end with appropriate suffix (FormData, WithRelations)
+- Constants use UPPER_SNAKE_CASE
+
+## 🌐 Environment & Deployment
+
+### Environment Variables
+
+- `DATABASE_URL` for Prisma
+- `BETTER_AUTH_SECRET` for auth security
+- `BETTER_AUTH_URL` for auth base URL
+- `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` for OAuth
+
+### Production Deployment
+
+- Run `pnpm build` for production build
+- Use `pnpx prisma migrate deploy` for production migrations
+- Set all environment variables in deployment platform
+- Ensure Better Auth URL matches production domain
+
+Remember: This project demonstrates enterprise-grade authentication patterns using Better Auth's plugin system. Always prioritize security, proper data isolation, and TypeScript safety.
