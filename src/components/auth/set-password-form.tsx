@@ -15,7 +15,6 @@ export function SetPasswordForm() {
     FORM_INITIAL_STATE
   );
 
-  // Handle success/error states
   useEffect(() => {
     if (state.success) {
       toast.success("Password set successfully! You can now enable 2FA.");

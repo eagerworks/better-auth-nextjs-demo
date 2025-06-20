@@ -40,7 +40,6 @@ export function OrganizationSettings({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Create Organization Form */}
         <div>
           <h3 className="font-semibold mb-3">Create New Organization</h3>
           <form action={createFormAction} className="space-y-3">
@@ -88,7 +87,6 @@ export function OrganizationSettings({
           </form>
         </div>
 
-        {/* Organizations List */}
         {organizations.length > 0 && (
           <div>
             <h3 className="font-semibold mb-3">Your Organizations</h3>
@@ -125,7 +123,6 @@ export function OrganizationSettings({
                     </div>
                   </div>
 
-                  {/* Invite Form */}
                   {showInviteForm === org.id && (
                     <InviteForm
                       organizationId={org.id}
@@ -163,7 +160,7 @@ function InviteForm({
     FORM_INITIAL_STATE
   );
 
-  // Close form on success
+  // Close form on success - Better Auth organization plugin integration
   useEffect(() => {
     if (inviteState.success) {
       const timer = setTimeout(() => {

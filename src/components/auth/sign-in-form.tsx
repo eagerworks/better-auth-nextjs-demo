@@ -123,7 +123,6 @@ export default function SignInForm() {
           </Button>
         </form>
 
-        {/* Divider */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
@@ -135,7 +134,6 @@ export default function SignInForm() {
           </div>
         </div>
 
-        {/* GitHub OAuth Button */}
         <Button
           type="button"
           variant="outline"

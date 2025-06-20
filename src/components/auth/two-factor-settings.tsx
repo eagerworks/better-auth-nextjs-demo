@@ -20,13 +20,11 @@ interface TwoFactorSettingsProps {
 }
 
 export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
-  // Form states
   const [showEnableFlow, setShowEnableFlow] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
   const [qrCodeUri, setQrCodeUri] = useState<string>("");
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
 
-  // Action states
   const [enableState, enableAction, isEnabling] = useActionState(
     enable2FAAction,
     FORM_INITIAL_STATE
@@ -40,7 +38,7 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
     FORM_INITIAL_STATE
   );
 
-  // Handle enable 2FA success
+  // Handle enable 2FA success - Better Auth TOTP integration
   useEffect(() => {
     if (enableState.success && enableState.data) {
       setQrCodeUri(enableState.data.totpURI);
@@ -113,7 +111,6 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
           </div>
         </div>
 
-        {/* Enable 2FA Flow */}
         {!user.twoFactorEnabled && !showEnableFlow && (
           <div className="space-y-3">
             <Button onClick={() => setShowEnableFlow(true)} className="w-full">
@@ -167,7 +164,6 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
           </form>
         )}
 
-        {/* QR Code and Verification */}
         {showQRCode && (
           <div className="space-y-4">
             <div className="text-center">
@@ -232,7 +228,6 @@ export function TwoFactorSettings({ user }: TwoFactorSettingsProps) {
           </div>
         )}
 
-        {/* Disable 2FA */}
         {user.twoFactorEnabled && (
           <form action={disableAction} className="space-y-4">
             <div className="space-y-2">

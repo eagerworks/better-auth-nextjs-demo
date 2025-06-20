@@ -30,7 +30,6 @@ export function EditCarDialog({ car, onSuccess }: EditCarDialogProps) {
     FORM_INITIAL_STATE
   );
 
-  // Handle success/error states
   useEffect(() => {
     if (state.success) {
       toast.success("Car updated successfully!");
@@ -56,10 +55,8 @@ export function EditCarDialog({ car, onSuccess }: EditCarDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <form action={formAction} className="space-y-4">
-          {/* Hidden car ID */}
           <input type="hidden" name="id" value={car.id} />
 
-          {/* Car Details (Read-only) */}
           <div className="grid grid-cols-3 gap-4 py-2 text-sm bg-gray-50 rounded-lg p-3">
             <div>
               <span className="font-medium text-gray-600">Brand:</span>
@@ -85,9 +82,7 @@ export function EditCarDialog({ car, onSuccess }: EditCarDialogProps) {
             </div>
           </div>
 
-          {/* Editable Fields */}
           <div className="grid grid-cols-2 gap-4">
-            {/* Price */}
             <div className="space-y-2">
               <Label htmlFor="price">Price ($)</Label>
               <Input
@@ -106,7 +101,6 @@ export function EditCarDialog({ car, onSuccess }: EditCarDialogProps) {
               )}
             </div>
 
-            {/* Kilometers */}
             <div className="space-y-2">
               <Label htmlFor="mileage">Kilometers</Label>
               <Input
@@ -133,7 +127,6 @@ export function EditCarDialog({ car, onSuccess }: EditCarDialogProps) {
             </Button>
           </DialogFooter>
 
-          {/* General Error */}
           {state.error &&
             state.fieldErrors &&
             Object.keys(state.fieldErrors).length === 0 && (

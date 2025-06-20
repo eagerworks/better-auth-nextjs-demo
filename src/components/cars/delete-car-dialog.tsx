@@ -29,7 +29,6 @@ export function DeleteCarDialog({ car, onSuccess }: DeleteCarDialogProps) {
     FORM_INITIAL_STATE
   );
 
-  // Handle success/error states
   useEffect(() => {
     if (state.success) {
       toast.success("Car deleted successfully!");
@@ -60,7 +59,6 @@ export function DeleteCarDialog({ car, onSuccess }: DeleteCarDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        {/* Car Details */}
         <div className="bg-gray-50 rounded-lg p-4 space-y-2">
           <div className="flex justify-between">
             <span className="font-medium text-gray-600">Brand:</span>

@@ -29,19 +29,18 @@ export default async function DashboardPage() {
     redirect("/sign-in");
   }
 
-  // Get user's active organization from session
+  // Get user's active organization from session - multi-tenant context
   const activeOrganization = session.session.activeOrganizationId
     ? await getActiveOrganization(session.session.activeOrganizationId)
     : null;
 
-  // Get all dashboard data with organization context
+  // Get all dashboard data with organization context - data isolation
   const { cars, brands, organizations, unassignedBrands } =
     await getDashboardData(session.user.id, activeOrganization?.id);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
@@ -68,9 +67,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Profile & Security Section */}
           <div className="lg:col-span-1 space-y-6">
-            {/* User Profile */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -99,24 +96,22 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
 
-            {/* Password Setting for OAuth Users */}
+            {/* Password setting for OAuth users - Better Auth allows setting passwords after social sign-in */}
             {session.user.image && <SetPasswordForm />}
 
-            {/* 2FA Security */}
+            {/* Two-Factor Authentication - Better Auth TOTP integration */}
             <TwoFactorSettings user={session.user} />
 
-            {/* Organization Management */}
+            {/* Organization Management - Better Auth organization plugin */}
             <OrganizationSettings organizations={organizations} />
           </div>
 
-          {/* Car Management Section */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Assign Brands (only show if there are unassigned brands and active org) */}
+            {/* Brand assignment - demonstrates multi-tenant data management */}
             {activeOrganization && unassignedBrands.length > 0 && (
               <AssignBrandForm unassignedBrands={unassignedBrands} />
             )}
 
-            {/* Add New Car - only show if there are brands assigned */}
             {brands.length > 0 ? (
               <Card>
                 <CardHeader>
@@ -146,7 +141,6 @@ export default async function DashboardPage() {
               </Card>
             )}
 
-            {/* Car Collection */}
             <Card>
               <CardHeader>
                 <CardTitle>Your Car Collection ({cars.length})</CardTitle>

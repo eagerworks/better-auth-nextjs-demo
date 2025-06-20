@@ -25,7 +25,7 @@ export function AddCarForm({ brands, onSuccess }: AddCarFormProps) {
   const [models, setModels] = useState<ModelForForm[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
 
-  // Load models when brand changes
+  // Load models when brand changes - demonstrates dynamic form updates
   useEffect(() => {
     const loadModels = async () => {
       if (selectedBrandId) {
@@ -48,7 +48,6 @@ export function AddCarForm({ brands, onSuccess }: AddCarFormProps) {
     loadModels();
   }, [selectedBrandId]);
 
-  // Handle success/error states
   useEffect(() => {
     if (state.success) {
       toast.success("Car added successfully!");
@@ -65,7 +64,6 @@ export function AddCarForm({ brands, onSuccess }: AddCarFormProps) {
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">
-          {/* Brand Selection */}
           <div className="space-y-2">
             <Label htmlFor="brandId">Brand</Label>
             <select
@@ -90,7 +88,6 @@ export function AddCarForm({ brands, onSuccess }: AddCarFormProps) {
             )}
           </div>
 
-          {/* Model Selection */}
           <div className="space-y-2">
             <Label htmlFor="modelId">Model</Label>
             <select
@@ -120,7 +117,6 @@ export function AddCarForm({ brands, onSuccess }: AddCarFormProps) {
             )}
           </div>
 
-          {/* Year */}
           <div className="space-y-2">
             <Label htmlFor="year">Year</Label>
             <Input
@@ -137,7 +133,6 @@ export function AddCarForm({ brands, onSuccess }: AddCarFormProps) {
             )}
           </div>
 
-          {/* Price */}
           <div className="space-y-2">
             <Label htmlFor="price">Price ($)</Label>
             <Input
@@ -153,7 +148,6 @@ export function AddCarForm({ brands, onSuccess }: AddCarFormProps) {
             )}
           </div>
 
-          {/* Color */}
           <div className="space-y-2">
             <Label htmlFor="color">Color</Label>
             <Input
@@ -169,7 +163,6 @@ export function AddCarForm({ brands, onSuccess }: AddCarFormProps) {
             )}
           </div>
 
-          {/* Kilometers */}
           <div className="space-y-2">
             <Label htmlFor="mileage">Kilometers</Label>
             <Input
@@ -188,7 +181,6 @@ export function AddCarForm({ brands, onSuccess }: AddCarFormProps) {
             )}
           </div>
 
-          {/* Submit Button */}
           <Button
             type="submit"
             disabled={isPending || !selectedBrandId}
@@ -197,7 +189,6 @@ export function AddCarForm({ brands, onSuccess }: AddCarFormProps) {
             {isPending ? "Adding Car..." : "Add Car"}
           </Button>
 
-          {/* General Error */}
           {state.error &&
             state.fieldErrors &&
             Object.keys(state.fieldErrors).length === 0 && (
